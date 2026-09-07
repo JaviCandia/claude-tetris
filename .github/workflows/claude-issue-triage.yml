@@ -64,13 +64,14 @@ jobs:
             2. Ejecuta `gh issue view $ISSUE_NUMBER --repo $REPO --json title,body,labels,comments`
                para leer el issue completo, incluyendo comentarios previos.
 
-            3. Lee el código relevante del repo para entender la causa real
-               del problema o el alcance del pedido. La arquitectura está
-               documentada en CLAUDE.md: todo el juego vive en game.js
-               (~300 líneas, funciones a nivel de módulo, sin clases), con
-               index.html y style.css. Usa Read/Grep/Glob sobre game.js,
-               index.html, style.css y CLAUDE.md — no asumas nada que puedas
-               verificar leyendo el código.
+            3. Lee CLAUDE.md, game.js, index.html y style.css directamente
+               con la herramienta Read (son los únicos 4 archivos del
+               proyecto — no hace falta ni está permitido usar Grep/Glob
+               para explorar, léelos completos y directamente para ahorrar
+               turnos). La arquitectura está documentada en CLAUDE.md: todo
+               el juego vive en game.js (~300 líneas, funciones a nivel de
+               módulo, sin clases). No asumas nada que puedas verificar
+               leyendo el código.
 
             4. Clasifica el issue (bug, mejora, pregunta, documentación,
                accesibilidad, etc.) y aplica entre 1 y 3 labels apropiados
@@ -128,10 +129,6 @@ jobs:
 
             Al terminar, no hagas nada más: no comentes dos veces, no
             edites el título del issue, no toques archivos del repositorio.
-          # TEMP: surface the full transcript so we can see exactly which
-          # tool calls are being denied and why. Remove once the permission
-          # issue is diagnosed and fixed.
-          show_full_output: true
           claude_args: |
-            --allowedTools "Read,Grep,Glob,Write,Bash(gh label list:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh api:*)"
-            --max-turns 25
+            --allowedTools "Read,Write,Bash(gh label list:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh api:*)"
+            --max-turns 40
