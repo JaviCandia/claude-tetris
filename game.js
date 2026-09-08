@@ -14,6 +14,7 @@ const COLORS = [
   '#82b1ff', // J - pale blue
   '#ffb74d', // L - orange
   '#f06292', // R - hueca (reto)
+  '#ff5252', // bomba (power-up)
 ];
 
 const PIECES = [
@@ -26,9 +27,16 @@ const PIECES = [
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
   [[8,8,8],[8,0,8],[8,8,8]],                  // R - hueca 3x3 (reto)
+  [[9]],                                       // bomba - power-up (destruye area 3x3)
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+
+const BOMB_TYPE = 9;
+const SPECIAL_TYPES = new Set([BOMB_TYPE]);
+const POWERUP_EVERY_LINES = 3;
+const BOMB_SCORE_PER_CELL = 10;
+const EXPLOSION_DURATION = 400; // ms
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -46,6 +54,8 @@ const themeToggle = document.getElementById('theme-toggle');
 const THEME_KEY = 'tetris-theme';
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let linesSincePowerUp;
+let explosions;
 let gridColor, blockHighlightColor;
 
 function applyTheme(theme) {
@@ -62,8 +72,9 @@ function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
-function randomPiece() {
-  const type = Math.floor(Math.random() * (PIECES.length - 1)) + 1;
+function randomPiece(forceSpecial) {
+  // -2 en vez de -1 para excluir la bomba (último tipo) de la selección aleatoria normal
+  const type = forceSpecial ? BOMB_TYPE : Math.floor(Math.random() * (PIECES.length - 2)) + 1;
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
@@ -121,9 +132,30 @@ function clearLines() {
   }
   if (cleared) {
     lines += cleared;
+    linesSincePowerUp += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    updateHUD();
+  }
+}
+
+function explodeBomb() {
+  const cx = current.x + Math.floor(current.shape[0].length / 2);
+  const cy = current.y + Math.floor(current.shape.length / 2);
+  const destroyedCells = [];
+  for (let r = cy - 1; r <= cy + 1; r++) {
+    for (let c = cx - 1; c <= cx + 1; c++) {
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+      if (board[r][c]) {
+        board[r][c] = 0;
+        destroyedCells.push({ r, c });
+      }
+    }
+  }
+  explosions.push({ cx, cy, cells: destroyedCells, start: performance.now() });
+  if (destroyedCells.length) {
+    score += destroyedCells.length * BOMB_SCORE_PER_CELL;
     updateHUD();
   }
 }
@@ -152,14 +184,20 @@ function softDrop() {
 }
 
 function lockPiece() {
-  merge();
-  clearLines();
+  if (SPECIAL_TYPES.has(current.type)) {
+    explodeBomb();
+  } else {
+    merge();
+    clearLines();
+  }
   spawn();
 }
 
 function spawn() {
   current = next;
-  next = randomPiece();
+  const forceBomb = linesSincePowerUp >= POWERUP_EVERY_LINES;
+  if (forceBomb) linesSincePowerUp -= POWERUP_EVERY_LINES;
+  next = randomPiece(forceBomb);
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
@@ -181,6 +219,12 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   // highlight
   context.fillStyle = blockHighlightColor;
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  if (colorIndex === BOMB_TYPE) {
+    context.fillStyle = '#212121';
+    context.beginPath();
+    context.arc(x * size + size / 2, y * size + size / 2 + 3, size * 0.22, 0, Math.PI * 2);
+    context.fill();
+  }
   context.globalAlpha = 1;
 }
 
@@ -199,6 +243,41 @@ function drawGrid() {
     ctx.lineTo(COLS * BLOCK, r * BLOCK);
     ctx.stroke();
   }
+}
+
+function drawExplosions() {
+  if (!explosions.length) return;
+  const now = performance.now();
+  explosions = explosions.filter(exp => now - exp.start < EXPLOSION_DURATION);
+  for (const exp of explosions) {
+    const t = (now - exp.start) / EXPLOSION_DURATION; // 0..1
+    const fade = 1 - t;
+
+    // flash de las celdas destruidas
+    ctx.globalAlpha = fade * 0.85;
+    ctx.fillStyle = '#fff59d';
+    for (const { r, c } of exp.cells) {
+      ctx.fillRect(c * BLOCK + 1, r * BLOCK + 1, BLOCK - 2, BLOCK - 2);
+    }
+
+    // anillo de onda expansiva centrado en la bomba
+    const centerX = (exp.cx + 0.5) * BLOCK;
+    const centerY = (exp.cy + 0.5) * BLOCK;
+    const radius = BLOCK * 0.3 + BLOCK * 2 * t;
+    ctx.globalAlpha = fade;
+    ctx.strokeStyle = '#ff5252';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.globalAlpha = fade * 0.6;
+    ctx.fillStyle = '#ff5252';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, BLOCK * 0.3 * fade, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 }
 
 function draw() {
@@ -221,6 +300,8 @@ function draw() {
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+
+  drawExplosions();
 }
 
 function drawNext() {
@@ -280,6 +361,8 @@ function init() {
   score = 0;
   lines = 0;
   level = 1;
+  linesSincePowerUp = 0;
+  explosions = [];
   paused = false;
   gameOver = false;
   dropInterval = 1000;
