@@ -36,6 +36,7 @@ const BOMB_TYPE = 9;
 const SPECIAL_TYPES = new Set([BOMB_TYPE]);
 const POWERUP_EVERY_LINES = 10;
 const BOMB_SCORE_PER_CELL = 10;
+const EXPLOSION_DURATION = 400; // ms
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -54,6 +55,7 @@ const THEME_KEY = 'tetris-theme';
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let linesSincePowerUp;
+let explosions;
 let gridColor, blockHighlightColor;
 
 function applyTheme(theme) {
@@ -141,18 +143,19 @@ function clearLines() {
 function explodeBomb() {
   const cx = current.x + Math.floor(current.shape[0].length / 2);
   const cy = current.y + Math.floor(current.shape.length / 2);
-  let destroyed = 0;
+  const destroyedCells = [];
   for (let r = cy - 1; r <= cy + 1; r++) {
     for (let c = cx - 1; c <= cx + 1; c++) {
       if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
       if (board[r][c]) {
         board[r][c] = 0;
-        destroyed++;
+        destroyedCells.push({ r, c });
       }
     }
   }
-  if (destroyed) {
-    score += destroyed * BOMB_SCORE_PER_CELL;
+  explosions.push({ cx, cy, cells: destroyedCells, start: performance.now() });
+  if (destroyedCells.length) {
+    score += destroyedCells.length * BOMB_SCORE_PER_CELL;
     updateHUD();
   }
 }
@@ -242,6 +245,41 @@ function drawGrid() {
   }
 }
 
+function drawExplosions() {
+  if (!explosions.length) return;
+  const now = performance.now();
+  explosions = explosions.filter(exp => now - exp.start < EXPLOSION_DURATION);
+  for (const exp of explosions) {
+    const t = (now - exp.start) / EXPLOSION_DURATION; // 0..1
+    const fade = 1 - t;
+
+    // flash de las celdas destruidas
+    ctx.globalAlpha = fade * 0.85;
+    ctx.fillStyle = '#fff59d';
+    for (const { r, c } of exp.cells) {
+      ctx.fillRect(c * BLOCK + 1, r * BLOCK + 1, BLOCK - 2, BLOCK - 2);
+    }
+
+    // anillo de onda expansiva centrado en la bomba
+    const centerX = (exp.cx + 0.5) * BLOCK;
+    const centerY = (exp.cy + 0.5) * BLOCK;
+    const radius = BLOCK * 0.3 + BLOCK * 2 * t;
+    ctx.globalAlpha = fade;
+    ctx.strokeStyle = '#ff5252';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.globalAlpha = fade * 0.6;
+    ctx.fillStyle = '#ff5252';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, BLOCK * 0.3 * fade, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawGrid();
@@ -262,6 +300,8 @@ function draw() {
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+
+  drawExplosions();
 }
 
 function drawNext() {
@@ -322,6 +362,7 @@ function init() {
   lines = 0;
   level = 1;
   linesSincePowerUp = 0;
+  explosions = [];
   paused = false;
   gameOver = false;
   dropInterval = 1000;
