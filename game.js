@@ -34,7 +34,7 @@ const LINE_SCORES = [0, 100, 300, 500, 800];
 
 const BOMB_TYPE = 9;
 const SPECIAL_TYPES = new Set([BOMB_TYPE]);
-const POWERUP_EVERY_LINES = 10;
+const POWERUP_EVERY_LINES = 3;
 const BOMB_SCORE_PER_CELL = 10;
 const EXPLOSION_DURATION = 400; // ms
 
