@@ -52,6 +52,23 @@
   --btn-hover-bg: #5c78d6;
 }
 
+/* ---- Skins visuales ---- */
+[data-skin="neon"] {
+  --board-bg: #050505;
+  --bg: #050505;
+  --grid-line: #151515;
+}
+
+[data-skin="pastel"] {
+  --board-bg: #fdf6f0;
+  --grid-line: #ecdde8;
+}
+
+[data-skin="pixel"] {
+  --board-bg: #12141c;
+  --grid-line: #23273a;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -178,6 +195,27 @@ body {
 
 .theme-switch input:checked + .slider::before {
   transform: translateX(18px);
+}
+
+/* ---- Selector de skin ---- */
+.skin-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#skin-select {
+  flex: 1;
+  background: var(--kbd-bg);
+  color: var(--value-color);
+  border: 1px solid var(--kbd-border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
 }
 
 /* ---- Controles ---- */
