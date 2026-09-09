@@ -56,7 +56,23 @@
       <div class="overlay-box">
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
+        <div id="gameover-scores" class="score-table"></div>
+        <div id="save-score-block" class="save-score-block hidden">
+          <input id="score-name" maxlength="12" placeholder="ANON" value="ANON" aria-label="Nombre para el récord" />
+          <button id="save-score-btn">Guardar</button>
+        </div>
         <button id="restart-btn">Reiniciar</button>
+      </div>
+    </div>
+
+    <div id="start-screen" class="overlay">
+      <div class="overlay-box">
+        <p id="start-title">TETRIS</p>
+        <div id="start-scores" class="score-table"></div>
+        <div class="start-actions">
+          <button id="play-btn">JUGAR</button>
+          <button id="reset-scores-btn">Resetear records</button>
+        </div>
       </div>
     </div>
   </div>
